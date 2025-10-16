@@ -1,0 +1,163 @@
+// 自執行匿名函式，避免汙染全域命名空間
+!function() {
+    // 輔助函式：取得元素屬性值，若無則回傳預設值
+    function o(w, v, i) {
+        return w.getAttribute(v) || i
+    }
+
+    // 輔助函式：取得指定標籤名稱的元素集合
+    function j(i) {
+        return document.getElementsByTagName(i)
+    }
+
+    // 初始化設定函式
+    function l() {
+        var i = j("script"),  // 取得所有 script 標籤
+            w = i.length,     // script 標籤數量
+            v = i[w - 1];     // 最後一個 script 標籤（即目前執行的腳本）
+        
+        return {
+            l: w,  // script 標籤總數
+            z: o(v, "zIndex", -1),      // 取得 zIndex 屬性，預設為 -1
+            o: o(v, "opacity", 0.5),    // 取得 opacity 屬性，預設為 0.5
+            c: o(v, "color", "0,0,0"),  // 取得 color 屬性，預設為黑色
+            n: o(v, "count", 99)        // 取得 count 屬性，預設為 99 個粒子
+        }
+    }
+
+    // 調整畫布大小以符合視窗尺寸
+    function k() {
+        r = u.width = window.innerWidth || 
+            document.documentElement.clientWidth || 
+            document.body.clientWidth,
+        n = u.height = window.innerHeight || 
+            document.documentElement.clientHeight || 
+            document.body.clientHeight
+    }
+
+    // 主動畫函式
+    function b() {
+        // 清除畫布內容
+        e.clearRect(0, 0, r, n);
+        
+        // 建立包含滑鼠與所有粒子的陣列
+        var w = [f].concat(t);
+        var x, v, A, B, z, y;
+        
+        // 處理每一個粒子
+        t.forEach(function(i) {
+            // 更新粒子位置
+            i.x += i.xa,
+            i.y += i.ya,
+            
+            // 碰到邊界時反彈
+            i.xa *= i.x > r || i.x < 0 ? -1 : 1,
+            i.ya *= i.y > n || i.y < 0 ? -1 : 1,
+            
+            // 繪製粒子（1x1像素的矩形）
+            e.fillRect(i.x - 0.5, i.y - 0.5, 1, 1);
+            
+            // 與其他粒子或滑鼠互動檢查
+            for(v = 0; v < w.length; v++) {
+                x = w[v];
+                
+                // 排除自己並確認對方座標有效
+                if(i !== x && null !== x.x && null !== x.y) {
+                    B = i.x - x.x,  // x 軸距離
+                    z = i.y - x.y,  // y 軸距離
+                    y = B * B + z * z;  // 距離平方（避免使用開根號）
+                    
+                    // 若距離在互動範圍內
+                    if(y < x.max) {
+                        // 若對象為滑鼠且距離偏近，產生輕微排斥效果
+                        if(x === f && y >= x.max / 2) {
+                            i.x -= 0.03 * B,
+                            i.y -= 0.03 * z
+                        }
+                        
+                        // 繪製連線（透明度隨距離變化）
+                        A = (x.max - y) / x.max;
+                        e.beginPath();
+                        e.lineWidth = A / 2;
+                        e.strokeStyle = "rgba(" + s.c + "," + (A + 0.2) + ")";
+                        e.moveTo(i.x, i.y);
+                        e.lineTo(x.x, x.y);
+                        e.stroke();
+                    }
+                }
+            }
+            // 從陣列中移除已處理的粒子，避免重複計算
+            w.splice(w.indexOf(i), 1)
+        }),
+        
+        // 請求下一幀動畫
+        m(b)
+    }
+
+    // 建立畫布元素
+    var u = document.createElement("canvas"),
+        s = l(),  // 取得設定參數
+        c = "c_n" + s.l,  // 生成唯一 ID
+        e = u.getContext("2d"),  // 取得 2D 繪圖上下文
+        r, n,  // 畫布寬高
+        
+        // 跨瀏覽器的 requestAnimationFrame 相容處理
+        m = window.requestAnimationFrame || 
+            window.webkitRequestAnimationFrame || 
+            window.mozRequestAnimationFrame || 
+            window.oRequestAnimationFrame || 
+            window.msRequestAnimationFrame || 
+            function(i) { window.setTimeout(i, 1000 / 45) },
+        
+        a = Math.random,  // 快速呼叫亂數函式
+        
+        // 滑鼠位置物件
+        f = { x: null, y: null, max: 20000 };  // max 為最大互動距離
+    
+    // 設定畫布屬性與樣式
+    u.id = c;
+    u.style.cssText = "position:fixed;top:0;left:0;z-index:" + s.z + ";opacity:" + s.o;
+    
+    // 將畫布加入至 body
+    j("body")[0].appendChild(u);
+    
+    // 初始化畫布尺寸
+    k(),
+    
+    // 當視窗尺寸改變時重新調整畫布大小
+    window.onresize = k;
+    
+    // 滑鼠移動事件
+    window.onmousemove = function(i) {
+        i = i || window.event,
+        f.x = i.clientX,
+        f.y = i.clientY
+    },
+    
+    // 滑鼠離開視窗時清除座標
+    window.onmouseout = function() {
+        f.x = null,
+        f.y = null
+    };
+    
+    // 初始化粒子陣列
+    for(var t = [], p = 0; s.n > p; p++) {
+        var h = a() * r,  // 隨機 x 座標
+            g = a() * n,  // 隨機 y 座標
+            q = 2 * a() - 1,  // x 軸速度（介於 -1 至 1）
+            d = 2 * a() - 1;  // y 軸速度（介於 -1 至 1）
+        
+        t.push({
+            x: h,
+            y: g,
+            xa: q,
+            ya: d,
+            max: 6000  // 粒子之間的最大互動距離
+        })
+    }
+    
+    // 延遲 100 毫秒後開始動畫
+    setTimeout(function() {
+        b()
+    }, 100)
+}();
